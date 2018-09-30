@@ -1,0 +1,49 @@
+l'interpreteur renvoie True si le script est vérifié, False sinon.
+
+ajouter une valuer à la pile: 
+  TYPE valeur   (TYPE est optionnel pour stocker une chaine de caractère)
+  
+types:
+  INT
+  BOOL
+  FLOAT
+  (STRING)  <-- tout type incorrect sera stocké en chaine de caractère
+
+operateurs:
+  OP_DUP      : tous types
+  OP_HASH160  : tous types (convertis en string)
+  OP_EQUAL    : tous types
+  OP_AND      : tous types
+  OP_OR       : tous types
+  OP_NOT      : tous types
+  OP_ADD      : INT, FLOAT ou BOOL (convertis en flottant)  (accepte aussi les strings convertibles en flottant)
+  OP_OPPOSITE : INT, FLOAT ou BOOL (convertis en flottant)  (accepte aussi les strings convertibles en flottant)
+  OP_MULT     : INT, FLOAT ou BOOL (convertis en flottant)  (accepte aussi les strings convertibles en flottant)
+  OP_DIV      : INT, FLOAT ou BOOL (convertis en flottant)  (accepte aussi les strings convertibles en flottant)
+  OP_VERIFY   : tous types (convertis en booléen)
+  OP_CHECKSIG : clef publique en haut, signature en bas. 
+                INT pour la clef, STRING pour la signature.
+      
+remarque: les fonctions ne crasheront pas, même si on leur fournit un mauvais type.
+          elles renverront dans ce cas False (en attrapant l'exception) et le script ne sera pas validé.
+
+
+le script d'une transaction standard sera donc:
+
+Script de l'entrée :  
+
+[
+  "OP_DUP",
+  "OP_HASH160",
+  "< hash160(pubkey) >",     <-- c'est normalement une chaine de caractères
+  "OP_EQUAL", 
+  "OP_VERIFY", 
+  "OP_CHECKSIG"
+]
+
+Script de la sortie : 
+
+[
+  "< signature >",           <-- c'est normalement une chaine de caractères
+  "INT < pubkey >"          <-- c'est normalement un entier
+]
