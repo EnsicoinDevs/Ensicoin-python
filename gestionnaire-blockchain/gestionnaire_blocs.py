@@ -144,6 +144,67 @@ def find_block(transaction_hash):
     return data[transaction_hash]
 
 
+def get_transaction():
+    """
+    returns the first transaction in the mempool and removes it from it
+    """
+    
+    mempool = open("mempool.json", "r")
+    data = json.load(mempool)
+    mempool.close()
+    
+    file = data["file"]
+    
+    if file != []:
+        transaction = file.pop()
+        
+        mempool = open("mempool.json", "w")
+        data = json.dumps(mempool)
+        mempool.write(data)
+        mempool.close()
+        
+        return transaction
+    else:
+        return False
+    
+def iter_blocks():
+    """
+    iterates on the block hashes in index.json 
+    """
+    
+    index = open("index.json", "r")
+    data = json.load(index)
+    index.close()
+    
+    for transaction_hash in data:
+        yield data[transaction_hash]
+        
+        
+def is_transaction_in_a_block(t_hash):
+    """
+    returns whether a transaction hash is in index.json
+    """
+    
+    index = open("index.json", "r")
+    data = json.load(index)
+    index.close()
+    
+    return t_hash in data
+    
+    
+def iter_transaction_that_isnt_in_a_block():
+    """
+    iterates on the couple (transaction,hash) where th hash is not in index.json
+    """
+    transaction = get_transaction
+    while transaction:
+        
+        t_hash = transaction_hash(transaction)
+        if not is_transaction_in_block(t_hash):
+            yield transaction,t_hash
+        transaction = get_transaction()
+
+
 
 
 
