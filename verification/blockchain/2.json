@@ -1,0 +1,17 @@
+{
+	"block": {
+		"header": {
+			"version": 0,
+			"flags": [
+				"b"
+			],
+			"hashPrevBlock": "1",
+			"hashTransactions": "",
+			"timestamp": 0,
+			"nonce": 42
+		},
+		"transactions": []
+	},
+	"hash": "2",
+	"chain_length": 2
+}
