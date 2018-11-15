@@ -44,17 +44,13 @@ class Connexions:
         the connexion is stored as TCP_IP:TCP_PORT
         """
         
-        nameS = "{}:{}".format(TCP_IP, TCP_PORT)
-        #nameL = "{}:{}".format(TCP_IP, LISTENING_PORT)
+        name = "{}:{}".format(TCP_IP, TCP_PORT)
         
         try:
-            self.socket_table[nameS] = (socket.socket(socket.AF_INET, 
+            self.socket_table[name] = (socket.socket(socket.AF_INET, 
                                                      socket.SOCK_STREAM))
-            self.socket_table[nameS].connect((TCP_IP, TCP_PORT))
+            self.socket_table[name].connect((TCP_IP, TCP_PORT))
             
-           # self.socket_table[nameL] = (socket.socket(socket.AF_INET, 
-           #                                           socket.SOCK_STREAM))
-           # self.socket_table[nameL].connect((TCP_IP, LISTENING_PORT))
             return True
             
         except:
