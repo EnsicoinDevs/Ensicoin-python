@@ -124,7 +124,6 @@ def connect(client_socket,C):
             m_type = request["type"]
         except:
             C.end_connexion(name)
-            C.end_connexion(name)
             assert 1==0, "incorrect message: connection ended"
         
         process_message(message,m_type,name,C)
