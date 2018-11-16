@@ -74,6 +74,7 @@ def ans_notfound(message,name,C):
     print("notfound message received")
     return 0
     
+    
 def ans_getdata(message,name,C):
     
     data_type = message["type"]
@@ -103,16 +104,30 @@ def ans_getdata(message,name,C):
         C.end_connexion(name)
         return []  
     
+    
 def ans_block(message,name,C):
     block_header = message["header"]
     block_hash = calculate_block_hash(block_header)
+    
+    if not block_hash in list(iter_blocks()):
+        for name in C.socket_table:
+            send_block(message,name,C)  #block is propagated if it was unknown
+            
     add_block(block_hash,message)
+    
     return 0
     
-def ans_transaction(message,name,C):
-    transact_hash = transaction_hash(message)
-    add_transaction(transact_hash,message)
     
+def ans_transaction(message,name,C):
+    t_hash = transaction_hash(message)
+
+    if not t_hash in list(iter_transaction_that_isnt_in_a_block()):
+        for name in C.socket_table:
+            send_transaction(message,name,C)  #transaction is propagated if it was unknown
+            
+    add_transaction(transact_hash,message)
+            
+            
 def ans_getblocks(message,name,C):
     
     block_list = list(block["hash"] for block in iter_blocks())
@@ -121,6 +136,7 @@ def ans_getblocks(message,name,C):
     msg["type"] = "inv"
     msg["message"] = {"type":"b","hashes":block_list}
     C.send(name,msg)
+    
     
 def ans_getmempool(message,name,C):
     

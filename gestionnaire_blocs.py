@@ -13,19 +13,35 @@ def add_block(block_hash,block):
     creates a new block in the blockchain
     """
     
-    try:
-        chain_length = get_block_chain_length(block["header"]["hashPrevBlock"])+1
-    except:
-        chain_length = 1
+    if not block_hash in list(iter_blocks()):
     
-    bhash = calculate_block_hash(block["header"])
+        try:
+            chain_length = get_block_chain_length(block["header"]["hashPrevBlock"])+1
+        except:
+            chain_length = 1
     
-    towrite = {"block":block,"hash":bhash,"chain_length":chain_length}
+        bhash = calculate_block_hash(block["header"])
     
-    file=open("blockchain/{}.json".format(block_hash), "w")
-    data = json.dumps(towrite)
-    file.write(data)
-    file.close()
+        towrite = {"block":block,"hash":bhash,"chain_length":chain_length}
+    
+        file=open("blockchain/{}.json".format(block_hash), "w")
+        data = json.dumps(towrite)
+        file.write(data)
+        file.close()
+        
+        
+        index = open("index.json", "r")
+        data = json.load(index)
+        index.close()
+        
+        for transaction in block["transactions"]:
+            t_hash = transaction_hash(transaction)
+            data[t_hash]=block_hash
+        
+        index = open("index.json", "w")
+        towrite = json.dumps(data)
+        index.write(towrite)
+        index.close()
 
 def get_block(block_hash):
     """
@@ -150,7 +166,7 @@ def calculate_transactions_hash(transactions):
     return steak_hashe.hexdigest()
 
 
-def find_block(transaction_hash):
+def find_block(t_hash):
     """
     returns the hash of the block containing the transaction output
     """
@@ -159,7 +175,7 @@ def find_block(transaction_hash):
     data = json.load(index)
     index.close()
 
-    return data[transaction_hash]
+    return data[t_hash]
 
 
 def get_transaction():
@@ -193,7 +209,7 @@ def get_transaction():
     else:
         return False
         
-def find_transaction(transaction_hash):
+def find_transaction(t_hash):
     """
     returns a transaction from the mempool
     """
@@ -203,13 +219,13 @@ def find_transaction(transaction_hash):
     mempool.close()
     
     file = data["transactions"]
-    if transaction_hash in file:
-        return file[transaction_hash]
+    if t_hash in file:
+        return file[t_hash]
     else:
         return None
         
 
-def add_transaction(transactionhash,transaction):
+def add_transaction(t_hash,transaction):
     """
     adds a transaction to the mempool
     """
@@ -218,7 +234,7 @@ def add_transaction(transactionhash,transaction):
     data = json.load(mempool)
     mempool.close()
     
-    data["transactions"][transactionhash] = transaction 
+    data["transactions"][t_hash] = transaction 
     
     file=open("mempool.json", "w")
     msg = json.dumps(data)
@@ -235,8 +251,12 @@ def iter_blocks():
     data = json.load(index)
     index.close()
     
-    for transaction_hash in data:
-        yield data[transaction_hash]
+    list_hash = []
+    
+    for t_hash in data:
+        if not data[t_hash] in list_hash: #to output each block only once
+            yield data[t_hash]
+            list_hash.append(data[t_hash])
         
         
 def is_transaction_in_a_block(t_hash):
