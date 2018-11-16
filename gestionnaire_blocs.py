@@ -245,7 +245,7 @@ def iter_transaction_that_isnt_in_a_block():
     """
     iterates on the couple (transaction,hash) where th hash is not in index.json
     """
-    transaction = get_transaction
+    transaction = get_transaction()
     while transaction:
         
         t_hash = transaction_hash(transaction)
