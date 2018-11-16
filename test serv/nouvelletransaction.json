@@ -1,0 +1,35 @@
+{"magic":422021,
+ "type":"transaction",
+ "timestamp":42,
+ "message":{
+		"version": 0,
+		"flags": ["a","olala"],
+		"inputs": [
+			{
+			"previousOutput": {
+				"transactionHash": "",
+				"index": 0
+				},
+			"script": [
+				"signature",
+				"pubkey"
+				]
+			}
+			],
+		"outputs": [
+			{
+			"value": 42,
+			"script": [
+				"OP_DUP",
+				"OP_HASH160",
+				"hash160(pubkey)",
+				"OP_EQUAL",
+				"OP_VERIFY",
+				"OP_CHECKSIG"
+				]
+			}
+			]
+	}
+	
+}
+		

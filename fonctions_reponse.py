@@ -71,6 +71,7 @@ def ans_inv(message,name,C):
         
         
 def ans_notfound(message,name,C):
+    print("notfound message received")
     return 0
     
 def ans_getdata(message,name,C):
@@ -103,10 +104,14 @@ def ans_getdata(message,name,C):
         return []  
     
 def ans_block(message,name,C):
+    block_header = message["header"]
+    block_hash = calculate_block_hash(block_header)
+    add_block(block_hash,message)
     return 0
     
 def ans_transaction(message,name,C):
-    return 0
+    transact_hash = transaction_hash(message)
+    add_transaction(transact_hash,message)
     
 def ans_getblocks(message,name,C):
     
@@ -126,8 +131,8 @@ def ans_getmempool(message,name,C):
     msg["message"] = {"type":"t","hashes":transact_list}
     C.send(name,msg)
     
-    
-    
+
+
     
 def send_getdata(unknown_list,data_type,name,C):
     msg = msg_template()

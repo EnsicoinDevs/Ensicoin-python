@@ -12,8 +12,18 @@ def add_block(block_hash,block):
     """
     creates a new block in the blockchain
     """
+    
+    try:
+        chain_length = get_block_chain_length(block["header"]["hashPrevBlock"])+1
+    except:
+        chain_length = 1
+    
+    bhash = calculate_block_hash(block["header"])
+    
+    towrite = {"block":block,"hash":bhash,"chain_length":chain_length}
+    
     file=open("blockchain/{}.json".format(block_hash), "w")
-    data = json.dumps(block)
+    data = json.dumps(towrite)
     file.write(data)
     file.close()
 
@@ -83,13 +93,13 @@ def transaction_hash(transaction):
     
     for t_input in  transaction["inputs"]:
         #transactionHash, index et script
-        steak += str(t_input["transactionHash"])
-        steak += str(t_input["index"])
+        steak += str(t_input["previousOutput"]["transactionHash"])
+        steak += str(t_input["previousOutput"]["index"])
         steak += str(t_input["script"])
         
     for t_output in transaction["outputs"]:
-        steak += str(t_input["value"])
-        steak += str(t_input["script"])
+        steak += str(t_output["value"])
+        steak += str(t_output["script"])
     
     steak_hashe = hashlib.sha256(steak.encode())
     steak_hashe = hashlib.sha256(steak_hashe.digest())
@@ -199,7 +209,7 @@ def find_transaction(transaction_hash):
         return None
         
 
-def add_transaction(transaction,transactionhash):
+def add_transaction(transactionhash,transaction):
     """
     adds a transaction to the mempool
     """
@@ -211,7 +221,7 @@ def add_transaction(transaction,transactionhash):
     data["transactions"][transactionhash] = transaction 
     
     file=open("mempool.json", "w")
-    msg = json.dump(data)
+    msg = json.dumps(data)
     file.write(msg)
     file.close()
 
