@@ -282,6 +282,20 @@ def iter_transaction_that_isnt_in_a_block():
         if not is_transaction_in_a_block(t_hash):
             yield transaction,t_hash
         transaction = get_transaction()
+        
+def iter_transaction():
+    """
+    iterates on the couple (transaction,hash) where th hash is not in index.json
+    """
+    
+    mempool = open("mempool.json", "r")
+    data = json.load(mempool)
+    mempool.close()
+    
+    for t_hash in data["transactions"]:
+        transaction = find_transaction(t_hash)
+        yield transaction,t_hash
+
 
 
 
