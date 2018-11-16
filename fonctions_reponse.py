@@ -111,6 +111,7 @@ def ans_block(message,name,C):
     
     if not block_hash in list(iter_blocks()):
         for name in C.socket_table:
+            print("block sent to " + name)
             send_block(message,name,C)  #block is propagated if it was unknown
             
     add_block(block_hash,message)
@@ -123,6 +124,7 @@ def ans_transaction(message,name,C):
 
     if not t_hash in list(iter_transaction()):
         for name in C.socket_table:
+            print("transaction sent to " + name)
             send_transaction(message,name,C)  #transaction is propagated if it was unknown
             
     add_transaction(t_hash,message)
@@ -174,6 +176,17 @@ def send_transaction(transact,name,C):
     msg["message"] = transact
     C.send(name,msg)
     
+def send_getblocks(name,C):
+    msg = msg_template()
+    msg["type"] = "getblocks"
+    msg["message"] = {"hashes": [],"stopHash": ""}
+    C.send(name,msg)
+    
+def send_getmempool(name,C):
+    msg = msg_template()
+    msg["type"] = "getmempool"
+    msg["message"] = {}
+    C.send(name,msg)
     
     
 def msg_template():

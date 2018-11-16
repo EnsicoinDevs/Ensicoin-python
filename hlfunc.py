@@ -63,7 +63,7 @@ def init_connections(C):
         name = "{}:{}".format(TCP_IP, TCP_PORT)    
     
         C.start_connexion(TCP_IP,TCP_PORT)
-        C.send(name,whoami)    #envoie un whoami 
+        C.send(name,whoami())    #envoie un whoami 
         print(C.listen(name))
         
         
