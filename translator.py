@@ -70,55 +70,72 @@ def decode_address(code):
     
 class Uint16:
     
-    def __init__(self, value):
+    def __init__(self, value=0):
         self.value = int(value)
         
     def __str__(self):
         return str(self.value)
+    
+    def __int__(self):
+        return self.value
         
     def encode(self):
         return encode_number(self.value,2)
         
-    def __int__(self):
-        return self.value
-        
+    def decode(self, code):
+        cut = 2
+        value = decode_number(code[:cut])
+        self.__init__(value)
+        return code[cut:]
         
 
 class Uint32:
     
-    def __init__(self, value):
+    def __init__(self, value=0):
         self.value = int(value)
         
     def __str__(self):
         return str(self.value)
         
-    def encode(self):
-        return encode_number(self.value,4)
-
     def __int__(self):
         return self.value
+        
+    def encode(self):
+        return encode_number(self.value,4)
+        
+    def decode(self, code):
+        cut = 4
+        value = decode_number(code[:cut])
+        self.__init__(value)
+        return code[cut:]
         
         
 
 class Uint64:
     
-    def __init__(self, value):
+    def __init__(self, value=0):
         self.value = int(value)
         
     def __str__(self):
         return str(self.value)
         
+    def __int__(self):
+        return self.value
+        
     def encode(self):
         return encode_number(self.value,8)
         
-    def __int__(self):
-        return self.value
+    def decode(self, code):
+        cut = 8
+        value = decode_number(code[:cut])
+        self.__init__(value)
+        return code[cut:]
     
 
 
 class Var_uint:
     
-    def __init__(self, value):
+    def __init__(self, value=0):
         self.value = int(value)
         
         if 0 <= int(value) <= 0xFF: 
@@ -137,19 +154,41 @@ class Var_uint:
     def __str__(self):
         return str(self.value)
         
-        
-    def encode(self):
-        dico = {8:"", 16:"FD", 32:"FE", 64:"FF"}
-        return dico[self.length] + encode_number(self.value,self.length//4)
-        
     def __int__(self):
         return self.value
         
+    def encode(self):
+        dico = {8:"", 16:chr(0xFD), 32:chr(0xFE), 64:chr(0xFF)}
+        return dico[self.length] + encode_number(self.value,self.length//4)
+
+    def decode(self, code):
+        var_type = code[0]
+        
+        cut = 0
+        if var_type == chr(0xFF):
+            cut = 8
+            code = code[1:]  #the indicator is removed
+            
+        elif var_type == chr(0xFE):
+            cut = 4
+            code = code[1:]
+            
+        elif var_type == chr(0xFD):
+            cut = 2
+            code = code[1:]
+            
+        else:
+            cut = 1
+            
+        value = decode_number(code[:cut])
+        self.__init__(value)
+        return code[cut:]
+        
         
 
-class Finite_string:
+class Finite_str:
     
-    def __init__(self, value, length):
+    def __init__(self, value=0, length=0):
         self.value = str(value)
         self.length = Var_uint(length)
         
@@ -159,52 +198,139 @@ class Finite_string:
     def encode(self):
         return encode_string(self.value, self.length)
         
+    def decode(self, code, length):
+        cut=int(length)
+        value = decode_string(code[:cut])
+        self.__init__(value,length)
+        return code[cut:]
+        
+        
+
+class Var_str():
+    def __init__(self, value=""):
+        
+        self.length = Var_uint(len(value))
+        self.value = Finite_str(value, self.length)
+        
+    def __str__(self):
+        return str(self.value)
+        
+    def encode(self):
+        return encode_string(self.value, self.length)
+        
+    def decode(self, code):
+        length = Var_uint()
+        
+        code = length.decode(code)
+        cut=int(length)
+        value = decode_string(code[:cut])
+        self.__init__(value,length)
+        return code[cut:]
+        
         
         
 class Var_array():
-    def __init__(self, values, length):
+    def __init__(self, values=[]):
         
-        self.values = ""
-        for value in values:
-            self.values += str(value)
-            
-        self.length = Var_uint(length)
+        self.length = Var_uint(len(values))
+        self.values = values
         
     def __str__(self):
         return str(self.values)
         
     def encode(self):
-        return self.length.encode() + self.values
-    
+        code = ""
+        for value in self.values:
+            code += value.encode()
+        return self.length.encode() + code
+        
+    def decode(self, code, item_type):
+        values = []
+        length = Var_uint()
+        
+        code = length.decode(code)
+        for i in range(self.length):
+            item = None
+            
+            if item_type == "address":
+                item = Address()
+                code = item.decode(code)
+            if item_type == "inventory":
+                item = Inv_vect()
+                code = item.decode(code)
+            if item_type == "flag":
+                item = Var_str()
+                code = item.decode(code)
+            if item_type == "transaction":
+                item = Transaction()
+                code = item.decode(code)
+            if item_type == "tx_in":
+                item = Tx_in()
+                code = item.decode(code)
+            if item_type == "tx_out":
+                item = Tx_out()
+                code = item.decode(code)
+            if item_type == "block":
+                item = Block()
+                code = item.decode(code)
+                
+            values.append(item)
+             
+        self.__init__(values)
+        return code
+            
 
 
 class Message:
     
-    def __init__(self, p_type="whoamiack", p_length=0, payload="", magic=MAGIC):
+    def __init__(self, p_type=Finite_str(), p_length=Uint64(), payload=Finite_str(), magic=Uint32()):
         self.magic = Uint32(magic)
-        self.type = Finite_string(p_type, 12)
+        self.type = Finite_str(p_type, 12)
         self.length = Uint64(p_length)
-        self.payload = Finite_string(payload, self.length)
+        self.payload = Finite_str(payload, self.length)
         
         
     def __str__(self):
         output = "message:\n"
+        output +="  magic number: " + str(self.magic) + "\n"
         output +="  type: " + str(self.type) + "\n"
         output +="  length: " + str(self.length) + "\n"
+        output +="  payload: " + str(self.payload) + "\n"
         return output
         
         
     def encode(self):
         return self.magic.encode() + self.type.encode() + self.length.encode() + self.payload.encode()
+        
+        
+    def decode(self,code):
+        magic = Uint32()
+        p_type = Finite_str()
+        p_length = Uint64()
+        payload = Finite_str()
+        
+        code = magic.decode(code)
+        code = p_type.decode(code, 12)
+        code = p_length.decode(code)
+        code = payload.decode(code, p_length)
+        
+        self.__init__(p_type, p_length, payload, magic)
+        return code
+        
     
-    
+    def create(self, p_type="whoamiack", p_length=0, payload="", magic=MAGIC):
+        self.magic = Uint32(magic)
+        self.type = Finite_str(p_type, 12)
+        self.length = Uint64(p_length)
+        self.payload = Finite_str(payload, self.length)
+
     
 class Address:
     
-    def __init__(self, timestamp, ip, port):
-        self.timestamp = Uint64(timestamp)
-        self.ip = Finite_string(ip, 16)
-        self.port = Uint16(port)
+    def __init__(self, timestamp=Uint64(), ip=Finite_str(), port=Uint16()):
+        self.timestamp = timestamp
+        self.ip = ip
+        self.port = port
         
         
     def __str__(self):
@@ -216,14 +342,33 @@ class Address:
         
     def encode(self):
         return self.timestamp.encode() + self.ip.encode() + self.port.encode()
+        
+        
+    def decode(self,code):
+        timestamp = Uint64()
+        ip = Finite_str()
+        port = Uint16()
+        
+        code = timestamp.decode(code)
+        code = ip.decode(code, 16)
+        code = port.decode(code)
+        
+        self.__init__(timestamp, ip, port)
+        return code
+        
+    
+    def create(self, timestamp=0, ip="78.248.188.120", port=4224):
+        self.timestamp = Uint64(timestamp)
+        self.ip = Finite_str(ip, 16)
+        self.port = Uint16(port)
 
 
 
 class Inv_vect:
     
-    def __init__(self, o_type, o_hash):
-        self.type = Uint32(o_type)
-        self.hash = Finite_string(o_hash,32)
+    def __init__(self, o_type=Uint32(), o_hash=Finite_str()):
+        self.type = o_type
+        self.hash = o_hash
         
         
     def __str__(self):
@@ -235,14 +380,30 @@ class Inv_vect:
         
     def encode(self):
         return self.type.encode() + self.hash.encode()
+        
+        
+    def decode(self,code):
+        o_type = Uint32()
+        o_hash = Finite_str()
+        
+        code = o_type.decode(code)
+        code = o_hash.decode(code, 32)
+        
+        self.__init__(o_type, o_hash)
+        return code
+        
+
+    def create(self, o_type="", o_hash=""):
+        self.type = Uint32(o_type)
+        self.hash = Finite_str(o_hash,32)
     
     
 
 class Whoami:
     
-    def __init__(self, version, timestamp):
-        self.version = Uint32(version)
-        self.timestamp = Uint64(timestamp)
+    def __init__(self, version=Uint32(), timestamp=Uint64()):
+        self.version = version
+        self.timestamp = timestamp
         
         
     def __str__(self):
@@ -254,14 +415,30 @@ class Whoami:
         
     def encode(self):
         return self.version.encode() + self.timestamp.encode()
+        
+    
+    def decode(self,code):
+        version = Uint32()
+        timestamp = Uint64()
+        
+        code = version.decode(code)
+        code = timestamp.decode(code)
+        
+        self.__init__(version, timestamp)
+        return code
+        
+        
+    def create(self, version=0, timestamp=0):
+        self.version = Uint32(version)
+        self.timestamp = Uint64(timestamp)
 
 
 
 class Addr:
     
-    def __init__(self, count, addresses):
-        self.count = Var_uint(count)
-        self.addresses = Var_array(addresses)
+    def __init__(self, count=Var_uint(), addresses=Var_array()):
+        self.count = count
+        self.addresses = addresses
         
         
     def __str__(self):
@@ -273,13 +450,29 @@ class Addr:
         
     def encode(self):
         return self.count.encode() + self.addresses.encode()
+        
+        
+    def decode(self,code):
+        count = Uint32()
+        addresses = Var_array()
+        
+        code = count.decode(code)
+        code = addresses.decode(code, "address")
+        
+        self.__init__(count, addresses)
+        return code
+        
+        
+    def create(self, count=0, addresses=[]):
+        self.count = Var_uint(count)
+        self.addresses = Var_array(addresses)
     
     
 class Inv:
     
-    def __init__(self, count, inventory):
-        self.count = Var_uint(count)
-        self.inventory = Var_array(inventory)
+    def __init__(self, count=Var_uint(), inventory=Var_array()):
+        self.count = count
+        self.inventory = inventory
         
         
     def __str__(self):
@@ -291,26 +484,43 @@ class Inv:
         
     def encode(self):
         return self.count.encode() + self.inventory.encode()
+        
+        
+    def decode(self,code):
+        count = Uint32()
+        inventory = Var_array()
+        
+        code = count.decode(code)
+        code = inventory.decode(code, "inventory")
+        
+        self.__init__(count, inventory)
+        return code
+        
+        
+    def create(self, count=0, inventory=[]):
+        self.count = Var_uint(count)
+        self.inventory = Var_array(inventory)
     
     
 
 class Block:
     
-    def __init__(self, version, flags_count, flags, prev_block, merkle_root,
-                 timestamp, height, bits, nonce, transactions_count, 
-                 transactions):
+    def __init__(self, version=Uint32(), flags_count=Var_uint(), flags=Var_array(), 
+                 prev_block=Finite_str(), merkle_root=Finite_str(), timestamp=Uint64(), 
+                 height=Uint32(), bits=Uint32(), nonce=Uint64(), 
+                 transactions_count=Var_uint(), transactions=Var_array()):
                      
-        self.version = Uint32(version)
-        self.flags_count = Var_uint(flags_count)
-        self.flags = Var_array(flags)
-        self.prev_block = Finite_string(prev_block, 32)
-        self.merkle_root = Finite_string(merkle_root, 32)
-        self.timestamp = Uint64(timestamp)
-        self.height = Uint32(height)
-        self.bits = Uint32(bits)
-        self.nonce = Uint64(nonce)
-        self.transactions_count = Var_uint(transactions_count)
-        self.transactions = Var_array(transactions)
+        self.version = version
+        self.flags_count = flags_count
+        self.flags = flags
+        self.prev_block = prev_block
+        self.merkle_root = merkle_root
+        self.timestamp = timestamp
+        self.height = height
+        self.bits = bits
+        self.nonce = nonce
+        self.transactions_count = transactions_count
+        self.transactions = transactions
         
         
     def __str__(self):
@@ -331,18 +541,67 @@ class Block:
         return debut + milieu1 + milieu2 + fin
         
         
+    def decode(self,code):
+        version = Uint32()
+        flags_count = Var_uint()
+        flags = Var_array()
+        prev_block = Finite_str()
+        merkle_root = Finite_str()
+        timestamp = Uint64()
+        height = Uint32()
+        bits = Uint32()
+        nonce = Uint64()
+        transactions_count = Var_uint()
+        transactions = Var_array()
         
-class Transaction:
-    
-    def __init__(self, version, flags_count, flags, inputs_count, inputs, outputs_count, outputs):
+        code = version.decode(code)
+        code = flags_count.decode(code)
+        code = flags.decode(code, "flag")
+        code = prev_block.decode(code, 32)
+        code = merkle_root.decode(code, 32)
+        code = timestamp.decode(code)
+        code = height.decode(code)   
+        code = bits.decode(code)
+        code = nonce.decode(code)
+        code = transactions_count.decode(code)
+        code = transactions.decode(code, "transaction")
+        
+        self.__init__(version, flags_count, flags, prev_block, 
+                      merkle_root, timestamp, height, bits, nonce, 
+                      transactions_count, transactions)
+        return code
+        
+        
+    def create(self, version=0, flags_count=0, flags=[], prev_block="", 
+                 merkle_root="", timestamp=0, height=0, bits=0, nonce=0, 
+                 transactions_count=0, transactions=[]):
                      
         self.version = Uint32(version)
         self.flags_count = Var_uint(flags_count)
         self.flags = Var_array(flags)
-        self.inputs_count = Var_uint(inputs_count)
-        self.inputs = Var_array(inputs)
-        self.outputs_count = Var_uint(outputs_count)
-        self.outputs = Var_array(outputs)
+        self.prev_block = Finite_str(prev_block, 32)
+        self.merkle_root = Finite_str(merkle_root, 32)
+        self.timestamp = Uint64(timestamp)
+        self.height = Uint32(height)
+        self.bits = Uint32(bits)
+        self.nonce = Uint64(nonce)
+        self.transactions_count = Var_uint(transactions_count)
+        self.transactions = Var_array(transactions)
+        
+        
+        
+class Transaction:
+    
+    def __init__(self, version=Uint32(), flags_count=Var_uint(), flags=Var_array(), inputs_count=Var_uint(), 
+                 inputs=Var_array(), outputs_count=Var_uint(), outputs=Var_array()):
+                     
+        self.version = version
+        self.flags_count = flags_count
+        self.flags = flags
+        self.inputs_count = inputs_count
+        self.inputs = inputs
+        self.outputs_count = outputs_count
+        self.outputs = outputs
         
         
     def __str__(self):
@@ -362,14 +621,86 @@ class Transaction:
         return debut + milieu + fin
         
         
+    def decode(self,code):
+        version = Uint32()
+        flags_count = Var_uint()
+        flags = Var_array()
+        inputs_count = Var_uint()
+        inputs = Var_array()
+        outputs_count = Var_uint()
+        outputs = Var_array()
         
+        code = version.decode(code)
+        code = flags_count.decode(code)
+        code = flags.decode(code, "flag")
+        code = inputs_count.decode(code)
+        code = inputs.decode(code, "tx_in")
+        code = outputs_count.decode(code)
+        code = outputs.decode(code, "tx_out")   
+
+        
+        self.__init__(version, flags_count, flags, inputs_count, 
+                      inputs, outputs_count, outputs)
+        return code
+        
+        
+    def create(self, version=0, flags_count=0, flags=[], inputs_count=0, 
+               inputs=[], outputs_count=0, outputs=[]):
+                     
+        self.version = Uint32(version)
+        self.flags_count = Var_uint(flags_count)
+        self.flags = Var_array(flags)
+        self.inputs_count = Var_uint(inputs_count)
+        self.inputs = Var_array(inputs)
+        self.outputs_count = Var_uint(outputs_count)
+        self.outputs = Var_array(outputs)
+        
+        
+        
+class Outpoint:
+
+    def __init__(self, t_hash=Finite_str(), index=Uint32()):
+                     
+        self.hash = t_hash
+        self.index = index
+
+        
+    def __str__(self):
+        output = "outpoint:\n"
+        output +="  hash: " + str(self.hash) + "\n"
+        output +="  index: " + str(self.index) + "\n"
+        return output
+        
+        
+    def encode(self):
+        return self.hash.encode() + self.index.encode()
+        
+        
+    def decode(self,code):
+        t_hash = Finite_str()
+        index = Uint32()
+        
+        code = t_hash.decode(code)
+        code = index.decode(code, "inventory")
+        
+        self.__init__(t_hash, index)
+        return code
+        
+        
+    def create(self, t_hash="", index=0):
+                     
+        self.hash = Finite_str(t_hash)
+        self.index = Uint32(index)
+
+
+
 class Tx_in:
     
-    def __init__(self, previous_output, script_length, script):
+    def __init__(self, previous_output=Outpoint(), script_length=Var_uint(), script=Var_array()):
                      
-        self.previous_output = Outpoint(previous_output)
-        self.script_length = Var_uint(script_length)
-        self.script = Var_array(script)
+        self.previous_output = previous_output
+        self.script_length = script_length
+        self.script = script
 
         
     def __str__(self):
@@ -382,16 +713,36 @@ class Tx_in:
         
     def encode(self):
         return self.previous_output.encode() + self.script_length.encode() + self.script.encode()
+        
+        
+    def decode(self,code):
+        previous_output = Outpoint()
+        script_length = Var_uint()
+        script = Var_array()
+        
+        code = previous_output.decode(code)
+        code = script_length.decode(code)
+        code = script.decode(code)
+        
+        self.__init__(previous_output, script_length, script)
+        return code
+        
+        
+    def create(self, previous_output=Outpoint(), script_length=0, script=""):
+                     
+        self.previous_output = previous_output
+        self.script_length = Var_uint(script_length)
+        self.script = Var_array(script)
 
 
 
 class Tx_out:
     
-    def __init__(self, value, script_length, script):
+    def __init__(self, value=Uint64(), script_length=Var_uint(), script=Var_array()):
                      
-        self.value = Uint64(value)
-        self.script_length = Var_uint(script_length)
-        self.script = Var_array(script)
+        self.value = value
+        self.script_length = script_length
+        self.script = script
 
         
     def __str__(self):
@@ -406,34 +757,34 @@ class Tx_out:
         return self.previous_output.encode() + self.script_length.encode() + self.script.encode()
         
         
+    def decode(self,code):
+        value = Uint64()
+        script_length = Var_uint()
+        script = Var_array()
         
-class Outpoint:
-
-    def __init__(self, t_hash, index):
+        code = value.decode(code)
+        code = script_length.decode(code)
+        code = script.decode(code)
+        
+        self.__init__(value, script_length, script)
+        return code
+        
+        
+    def create(self, value=0, script_length=0, script=""):
                      
-        self.hash = Finite_string(t_hash)
-        self.index = Uint32(index)
-
-        
-    def __str__(self):
-        output = "outpoint:\n"
-        output +="  hash: " + str(self.hash) + "\n"
-        output +="  index: " + str(self.index) + "\n"
-        return output
-        
-        
-    def encode(self):
-        return self.hash.encode() + self.index.encode()
+        self.value = Uint64(value)
+        self.script_length = Var_uint(script_length)
+        self.script = Var_array(script)
         
         
         
 class Getblocks():
 
-    def __init__(self, count, locator, b_hash):
+    def __init__(self, count=Var_uint(), locator=Finite_str(), b_hash=Finite_str()):
                      
-        self.count = Var_uint(count)
-        self.locator = Finite_string(locator)
-        self.hash = Finite_string(b_hash)
+        self.count = count
+        self.locator = locator
+        self.hash = b_hash
 
         
     def __str__(self):
@@ -444,13 +795,35 @@ class Getblocks():
         return output
         
         
+    def decode(self,code):
+        count = Var_uint()
+        locator = Var_array()
+        b_hash = Finite_str()
+        
+        code = count.decode(code)
+        code = locator.decode(code)
+        code = b_hash.decode(code,32)
+        
+        self.__init__(count, locator, b_hash)
+        return code
+        
+        
     def encode(self):
         return self.count.encode() + self.locator.encode() + self.hash.encode()
+        
+        
+    def create(self, count=0, locator=[], b_hash=""):
+                     
+        self.count = Var_uint(count)
+        self.locator = Var_array(locator)
+        self.hash = Finite_str(b_hash, 32)
 
 
 
 
-
-a = Message("inv",8,"a")
+a=Message()
+a.create("inv",8,"a")
 print(a.encode())
-print(decode_message(a.encode()))
+b=Message()
+b.decode(a.encode())
+print(b)
