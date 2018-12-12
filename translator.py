@@ -821,6 +821,11 @@ class Getblocks():
 
 
 
+def global_decode(message):
+    m = Message()
+    m.decode(message)
+    #TODO : decoder la payload selon le type -> plein de cas chiants à traiter
+
 a=Message()
 a.create("inv",8,"a")
 print(a.encode())
