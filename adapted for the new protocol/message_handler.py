@@ -1,0 +1,235 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Dec 19 10:27:16 2018
+
+@author: julouj
+"""
+
+from gestionnaire_blocs import *
+from constants import *
+import translator as t
+import time
+
+def type_dict():
+    return {"whoami" : ans_whoami,
+            "whoamiack" : ans_whoamiack,
+            "getaddr" : ans_getaddr,
+            "addr" : ans_addr,
+            "inv" : ans_inv,
+            "notfound" : ans_notfound,
+            "getdata" : ans_getdata,
+            "block" : ans_block,
+            "transaction" : ans_transaction,
+            "getblocks" : ans_getblocks,
+            "getmempool" : ans_getmempool
+            }
+
+
+def ans_whoami(payload,name,C):
+    w = t.Whoami()
+    version = VERSION
+    timestamp = time.time() #time since the epoch
+    service_count = SERVICE_COUNT
+    services = SERVICES
+    w.create(version,timestamp,service_count,services)
+    C.send(name,"wtf, tu m'as deja dit bonjour")
+    
+    
+def ans_whoamiack(payload,name,C):
+    pass
+
+
+def ans_inv(payload,name,C):
+    #payload is a t.Inv       
+    
+    count = int(payload.count)
+    inventory = payload.inventory
+    
+    length = int(inventory.length)
+    values = inventory.values
+    
+    #WIP
+    
+    unknown_list = []
+    known_list = []
+    
+    if data_type == "b":
+        
+        for block in data:
+            try:
+                get_block(block)
+                known_list.append(block)
+            except:
+                unknown_list.append(block)
+                
+        send_getdata(unknown_list,data_type,name,C)
+    
+        for blockhash in unknown_list:
+            ans = C.listen(name)
+            if ans["type"]!="notfound":
+                add_block(ans["message"],blockhash)
+            
+    if data_type == "t":
+        
+        for transact in data:
+            test = is_transaction_in_a_block(transact)
+            if test:
+                known_list.append(transact)
+            else:
+                unknown_list.append(transact)
+                
+        send_getdata(unknown_list,data_type,name,C)
+    
+        for transacthash in unknown_list:
+            ans = C.listen(name)
+            if ans["type"]!="notfound":
+                add_transact(ans["message"],transacthash)
+        
+    else:
+        print("error: wrong type in inv")
+        C.send(name,"what the shit are you talking to me: wrong type in inv")
+        C.end_connexion(name)
+        return []
+        
+        
+def ans_notfound(message,name,C):
+    print("notfound message received")
+    return 0
+    
+    
+def ans_getdata(message,name,C):
+    
+    data_type = message["type"]
+    data = message["hashes"]
+    
+    if data_type == "b":
+        
+        for block_hash in data:
+            try:
+                block = get_block(block_hash)
+                send_block(block,name,C)
+            except:
+                send_notfound(data_type,name,C)
+            
+    if data_type == "t":
+        for transact_hash in data:
+            try:
+                transact = find_transaction(transact_hash)
+                send_transaction(transact,name,C)
+            except:
+                send_notfound(data_type,name,C)
+        
+        
+    else:
+        print("error: wrong type in inv (getdata)")
+        C.send(name,"what the shit are you talking to me: wrong type in inv")
+        C.end_connexion(name)
+        return []  
+    
+    
+def ans_block(message,name,C):
+    block_header = message["header"]
+    block_hash = calculate_block_hash(block_header)
+    
+    if not block_hash in list(iter_blocks()):
+        for name in C.socket_table:
+            print("block sent to " + name)
+            send_block(message,name,C)  #block is propagated if it was unknown
+            
+    add_block(block_hash,message)
+    
+    return 0
+    
+    
+def ans_transaction(message,name,C):
+    t_hash = transaction_hash(message)
+
+    if not t_hash in list(iter_transaction()):
+        for name in C.socket_table:
+            print("transaction sent to " + name)
+            send_transaction(message,name,C)  #transaction is propagated if it was unknown
+            
+    add_transaction(t_hash,message)
+            
+            
+def ans_getblocks(message,name,C):
+    
+    block_list = list(block["hash"] for block in iter_blocks())
+    
+    msg = msg_template()
+    msg["type"] = "inv"
+    msg["message"] = {"type":"b","hashes":block_list}
+    C.send(name,msg)
+    
+    
+def ans_getmempool(message,name,C):
+    
+    transact_list = list(transact["hash"] for transact in iter_transaction())
+    
+    msg = msg_template()
+    msg["type"] = "inv"
+    msg["message"] = {"type":"t","hashes":transact_list}
+    C.send(name,msg)
+    
+
+
+    
+def send_getdata(unknown_list,data_type,name,C):
+    msg = msg_template()
+    msg["type"] = "inv"
+    msg["message"] = {"type":data_type,"hashes":unknown_list}
+    C.send(name,msg)
+    
+def send_notfound(data_type,name,C):
+    msg = msg_template()
+    msg["type"] = "notfound"
+    msg["message"] = {"type":data_type,"hash":""}
+    C.send(name,msg)
+    
+def send_block(block,name,C):
+    msg = msg_template()
+    msg["type"] = "block"
+    msg["message"] = block
+    C.send(name,msg)
+    
+def send_transaction(transact,name,C):
+    msg = msg_template()
+    msg["type"] = "transaction"
+    msg["message"] = transact
+    C.send(name,msg)
+    
+def send_getblocks(name,C):
+    msg = msg_template()
+    msg["type"] = "getblocks"
+    msg["message"] = {"hashes": [],"stopHash": ""}
+    C.send(name,msg)
+    
+def send_getmempool(name,C):
+    msg = msg_template()
+    msg["type"] = "getmempool"
+    msg["message"] = {}
+    C.send(name,msg)
+    
+    
+def msg_template():
+    """
+    returns the template of a message compatible with the protocol
+    the dictionnary "message" is empty so it can be filled later
+    """
+    
+    f=open("msg_template.json", "r")
+    data = json.load(f)
+    f.close()
+    return data
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

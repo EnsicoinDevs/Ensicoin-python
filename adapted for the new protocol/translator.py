@@ -4,7 +4,7 @@ Created on Fri Nov 23 12:48:04 2018
 @author: julouj
 """
 
-MAGIC = 422021
+from constants import *
 
 
 def iter_bytes(n):
@@ -401,9 +401,12 @@ class Inv_vect:
 
 class Whoami:
     
-    def __init__(self, version=Uint32(), timestamp=Uint64()):
+    def __init__(self, version=Uint32(), timestamp=Uint64(), 
+                 service_count=Var_uint(), services=Var_array()):
         self.version = version
         self.timestamp = timestamp
+        self.service_count = service_count
+        self.services = services
         
         
     def __str__(self):
@@ -428,7 +431,7 @@ class Whoami:
         return code
         
         
-    def create(self, version=0, timestamp=0):
+    def create(self, version=0, timestamp=0, services_count=0, services=[]):
         self.version = Uint32(version)
         self.timestamp = Uint64(timestamp)
 
@@ -861,6 +864,7 @@ def global_decode(message):
     elif payload_type == "tx":
         decoded_payload = Transaction()
         decoded_payload.decode(payload)
+        payload_type = "transaction"
         
     elif payload_type == "getblocks":
         decoded_payload = Inv()
