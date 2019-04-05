@@ -6,6 +6,7 @@ Created on Wed Dec 12 13:12:23 2018
 """
 
 import socket
+import translator
 
 LISTENING_PORT = 4224
 
@@ -130,4 +131,60 @@ class Connexions:
         """
         returns whether name is present in the hashtable
         """
-return name in self.socket_table
+        return name in self.socket_table
+        
+    
+    
+    
+    
+    
+    def send_nudes(self):
+        """
+        sends whoami to Johyn
+        """
+        addr = translator.Address()
+        addr.create()
+        
+        payload = translator.Whoami()
+        payload.create(4,addr,1,[translator.Var_str("say whoami")])
+        paie = payload.encode()
+        l = len(paie)
+        
+        c = translator.Whoami()
+        c.decode(paie)
+        #print(c)
+        
+        #print(list(hex(ord(c)) for c in paie))
+        
+        a=translator.Message()
+        a.create("whoami",l,paie)
+        message = a.encode()
+        #print(list(hex(ord(c)) for c in message))
+        
+        b=translator.Message()
+        b.decode(message)
+        print(b)
+        
+        c = translator.Whoami()
+        #print(list(hex(ord(c)) for c in str(b.payload)))
+        c.decode(str(b.payload))
+        #print(c)
+        
+        TCP_IP = "78.248.188.120"
+        TCP_PORT = 4224
+    
+        name = "{}:{}".format(TCP_IP, TCP_PORT)    
+    
+    
+        self.start_connexion(TCP_IP,TCP_PORT)
+        self.send(name,message)
+        print("message sent")
+        print(self.listen(name))
+        print("received")
+        self.end_connexion(name)
+        
+    
+        
+if __name__ == "__main__":
+    C=Connexions()
+    C.send_nudes()

@@ -40,8 +40,8 @@ def encode_string(s,longueur):
 def decode_string(encoded_s):
     s = ""
     for c in encoded_s:
-        if c != chr(0):
-            s+=c
+        #if c != chr(0):
+        s+=c
     return s
 
     
@@ -159,7 +159,7 @@ class Var_uint:
         
     def encode(self):
         dico = {8:"", 16:chr(0xFD), 32:chr(0xFE), 64:chr(0xFF)}
-        return dico[self.length] + encode_number(self.value,self.length//4)
+        return dico[self.length] + encode_number(self.value,self.length//4-1)
 
     def decode(self, code):
         var_type = code[0]
@@ -188,7 +188,7 @@ class Var_uint:
 
 class Finite_str:
     
-    def __init__(self, value=0, length=0):
+    def __init__(self, value="", length=0):
         self.value = str(value)
         self.length = Var_uint(length)
         
@@ -201,6 +201,7 @@ class Finite_str:
     def decode(self, code, length):
         cut=int(length)
         value = decode_string(code[:cut])
+        
         self.__init__(value,length)
         return code[cut:]
         
@@ -216,7 +217,7 @@ class Var_str():
         return str(self.value)
         
     def encode(self):
-        return encode_string(self.value, self.length)
+        return self.length.encode() + encode_string(str(self.value), self.length)
         
     def decode(self, code):
         length = Var_uint()
@@ -224,7 +225,7 @@ class Var_str():
         code = length.decode(code)
         cut=int(length)
         value = decode_string(code[:cut])
-        self.__init__(value,length)
+        self.__init__(value)
         return code[cut:]
         
         
@@ -236,7 +237,7 @@ class Var_array():
         self.values = values
         
     def __str__(self):
-        return str(self.values)
+        return str(list(str(e) for e in self.values))
         
     def encode(self):
         code = ""
@@ -249,7 +250,8 @@ class Var_array():
         length = Var_uint()
         
         code = length.decode(code)
-        for i in range(self.length):
+        
+        for i in range(int(length)):
             item = None
             
             if item_type == "address":
@@ -273,6 +275,9 @@ class Var_array():
             if item_type == "block":
                 item = Block()
                 code = item.decode(code)
+            if item_type == "str":
+                item = Var_str()
+                code = item.decode(code)
                 
             values.append(item)
              
@@ -284,10 +289,10 @@ class Var_array():
 class Message:
     
     def __init__(self, p_type=Finite_str(), p_length=Uint64(), payload=Finite_str(), magic=Uint32()):
-        self.magic = Uint32(magic)
-        self.type = Finite_str(p_type, 12)
-        self.length = Uint64(p_length)
-        self.payload = Finite_str(payload, self.length)
+        self.magic = magic
+        self.type = Finite_str(str(p_type), 12)
+        self.length = p_length
+        self.payload = Finite_str(str(payload), self.length)
         
         
     def __str__(self):
@@ -401,10 +406,10 @@ class Inv_vect:
 
 class Whoami:
     
-    def __init__(self, version=Uint32(), timestamp=Uint64(), 
+    def __init__(self, version=Uint32(), emetteur=Address(), 
                  service_count=Var_uint(), services=Var_array()):
         self.version = version
-        self.timestamp = timestamp
+        self.emetteur = emetteur
         self.service_count = service_count
         self.services = services
         
@@ -412,28 +417,37 @@ class Whoami:
     def __str__(self):
         output = "whoami:\n"
         output +="  version: " + str(self.version) + "\n"
-        output +="  timestamp: " + str(self.timestamp) + "\n"
+        output +="  emetteur: " + str(self.emetteur) + "\n"
+        output +="  service_count: " + str(self.service_count) + "\n"
+        output +="  services: " + str(self.services) + "\n"
         return output
         
         
     def encode(self):
-        return self.version.encode() + self.timestamp.encode()
+        return self.version.encode() + self.emetteur.encode() + self.service_count.encode() + self.services.encode()
         
     
     def decode(self,code):
         version = Uint32()
-        timestamp = Uint64()
+        emetteur = Address()
+        service_count=Var_uint()
+        services=Var_array()
         
         code = version.decode(code)
-        code = timestamp.decode(code)
+        code = emetteur.decode(code)
+        code = service_count.decode(code)
+        code = services.decode(code, "str")
         
-        self.__init__(version, timestamp)
+        self.__init__(version, emetteur, service_count, services)
         return code
         
         
-    def create(self, version=0, timestamp=0, services_count=0, services=[]):
+    def create(self, version=0, emetteur=Address(), services_count=0, services=[]):
         self.version = Uint32(version)
-        self.timestamp = Uint64(timestamp)
+        self.emetteur = emetteur
+        self.service_count = Var_uint(services_count)
+        self.services = Var_array(services)
+        
 
 
 
@@ -880,10 +894,11 @@ def global_decode(message):
     return int(message.magic), payload_type, int(message.length), decoded_payload
 
     
-
-#a=Message()
-#a.create("inv",8,"a")
-#print(a.encode())
-#b=Message()
-#b.decode(a.encode())
-#print(b)
+if __name__ == "__main__":
+    
+    a=Message()
+    a.create("inv",8,"a")
+    print(a.encode())
+    b=Message()
+    b.decode(a.encode())
+    print(b)
