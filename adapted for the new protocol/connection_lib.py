@@ -171,15 +171,15 @@ class Connexions:
         #print(c)
         
         TCP_IP = "78.248.188.120"
+        #TCP_IP = socket.gethostname()
         TCP_PORT = 4224
     
         name = "{}:{}".format(TCP_IP, TCP_PORT)    
     
     
-        self.start_connexion(TCP_IP,TCP_PORT)
-        self.send(name,message)
-        print("message sent")
-        print(self.listen(name))
+        print("connection established: " + str(self.start_connexion(TCP_IP,TCP_PORT)))
+        print("message sent: " + str(self.send(name,message)))
+        print(self.listen_timed(name))
         print("received")
         self.end_connexion(name)
         
