@@ -6,7 +6,7 @@ Created on Thu Nov 15 20:31:23 2018
 """
 
 import json
-from hlfunc import *
+from messages import whoami, whoamiack
 from fonctions_reponse import *
 
 def command_dict():
@@ -55,14 +55,19 @@ def command_connections(command,C):
     elif command[1] == "set":
         try:
             TCP_IP = command[2]
-            TCP_PORT = int(command[3])
-            C.start_connexion(TCP_IP,TCP_PORT)
-            name = "{}:{}".format(TCP_IP, TCP_PORT)
-            C.send(name,whoami())
-            print(C.listen(name))
-            print('Connected to ' + name)
         except:
-            print("wrong address format")
+            print("wrong address format (missing IP)")
+        try:
+            TCP_PORT = int(command[3])
+        except:
+            print("wrong address format (missing port)")
+ 
+        name = "{}:{}".format(TCP_IP, TCP_PORT)
+
+        C.start_connexion(TCP_IP,TCP_PORT)
+        C.send(name,whoami())
+        print(C.listen_timed(name))
+        C.send(name,whoamiack())
             
     elif command[1] == "end":
         try:
@@ -72,7 +77,7 @@ def command_connections(command,C):
             C.end_connexion(name)
             print('disconnected from ' + name)
         except:
-            print("wrong address format")
+            print("wrong address format or disconnection error")
             
     else:
         print("unknown argument: " + str(command[1]))

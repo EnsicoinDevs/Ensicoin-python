@@ -8,6 +8,7 @@ import json
 import socket
 import threading
 import translator
+from messages import *
 from fonctions_reponse import *
 from commands import *
 
@@ -24,35 +25,6 @@ def msg_template():
     data = json.load(f)
     f.close()
     return data
-    
-    
-def whoami():
-    """
-    returns a compatible whoami so it can be sent to another node
-    """
-    addr = translator.Address()
-    addr.create()
-        
-    payload = translator.Whoami()
-    payload.create(1,addr,2,[translator.Var_str("node")])
-    paie = payload.encode()
-    l = len(paie)
-    
-    a=translator.Message()
-    a.create("whoami",l,paie)
-    message = a.encode()
-    
-    return message
-
-
-def whoamiack():
-    paie = ""
-    l = 0
-    a=translator.Message()
-    a.create("whoamiack",l,paie)
-    message = a.encode()
-    
-    return message
 
 
 def init_control(C):
